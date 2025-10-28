@@ -1,0 +1,192 @@
+---
+title: "Welcome to My Technical Blog"
+date: "2025-10-27"
+description: "An introduction to this blog and a showcase of all the features including syntax highlighting, MDX components, and elegant typography."
+tags: ["meta", "introduction", "design"]
+---
+
+# Welcome
+
+This is the inaugural post for this technical blog. It's built with a carefully curated tech stack designed for performance, elegance, and an excellent writing experience.
+
+## Design Philosophy
+
+The design embraces several key principles:
+
+- **Ma (間)** - The Japanese concept of negative space and breathing room
+- **Typography First** - Generous line-height (1.75) and thoughtful letter-spacing
+- **Restraint** - Sparing use of accent colors for maximum impact
+- **Elegance** - Inspired by Vercel's aesthetic with personal touches
+
+## Tech Stack
+
+This blog is built with the latest best practices:
+
+### Core Framework
+
+```typescript
+const techStack = {
+  framework: "Next.js 16",
+  language: "TypeScript",
+  styling: "Tailwind CSS v4",
+  components: "Shadcn/ui",
+  content: "MDX",
+  highlighting: "Shiki via rehype-pretty-code",
+  animations: "Framer Motion",
+  fonts: "Geist Sans & Geist Mono"
+};
+```
+
+### Why These Choices?
+
+**Next.js 16** with the App Router provides:
+- Server Components by default for optimal performance
+- Streaming and Suspense support
+- Built-in TypeScript support
+- Excellent developer experience
+
+**Tailwind CSS v4** introduces:
+- CSS-first configuration (no more `tailwind.config.js`)
+- Faster build times
+- Simpler integration
+- Modern CSS features
+
+**MDX** enables:
+- Rich content with React components
+- Frontmatter for metadata
+- Seamless integration with Next.js
+
+## Code Highlighting
+
+The syntax highlighting is powered by Shiki, which provides beautiful, accurate highlighting at build time:
+
+```javascript
+// Example: Array methods in JavaScript
+const numbers = [1, 2, 3, 4, 5];
+
+const doubled = numbers.map(n => n * 2);
+const evens = numbers.filter(n => n % 2 === 0);
+const sum = numbers.reduce((acc, n) => acc + n, 0);
+
+console.log({ doubled, evens, sum });
+```
+
+Here's a Python example:
+
+```python
+# Example: List comprehensions
+numbers = [1, 2, 3, 4, 5]
+
+doubled = [n * 2 for n in numbers]
+evens = [n for n in numbers if n % 2 == 0]
+sum_total = sum(numbers)
+
+print(f"Doubled: {doubled}")
+print(f"Evens: {evens}")
+print(f"Sum: {sum_total}")
+```
+
+And a TypeScript example with interfaces:
+
+```typescript
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "user";
+}
+
+function greetUser(user: User): string {
+  return `Hello, ${user.name}! Your role is ${user.role}.`;
+}
+
+const currentUser: User = {
+  id: "1",
+  name: "John Doe",
+  email: "john@example.com",
+  role: "admin"
+};
+
+console.log(greetUser(currentUser));
+```
+
+### Line Highlighting
+
+You can highlight specific lines to draw attention to important code. Use the `{lineNumbers}` syntax:
+
+```typescript {2,5-7}
+// Regular line
+const highlighted = "This line is highlighted!";
+const normal = "This is a normal line";
+
+// These three lines are highlighted
+const start = "Range start";
+const end = "Range end";
+
+const another = "Back to normal";
+```
+
+All code blocks include:
+- **Copy to clipboard** - One-click copying
+- **Language indicator** - Shows the programming language
+- **Syntax highlighting** - Powered by Shiki
+- **Line highlighting** - Draw attention to key lines
+- **Mobile responsive** - Optimized for all screen sizes
+
+## Typography Features
+
+The typography system includes:
+
+1. **Display sizes** - For hero headings (60px, 48px)
+2. **Heading hierarchy** - h1 through h4 with proper scaling
+3. **Body text** - 18px base size with 1.75 line-height
+4. **Generous spacing** - Following the Ma principle
+
+### Lists Work Great
+
+Unordered lists:
+- First item with some text
+- Second item with more content
+- Third item to show spacing
+
+Ordered lists:
+1. Research best practices
+2. Implement with care
+3. Test thoroughly
+4. Ship with confidence
+
+## Blockquotes
+
+> "The details are not the details. They make the design."
+>
+> — Charles Eames
+
+Blockquotes have a subtle accent border and elevated background to stand out without being distracting.
+
+## Links and Emphasis
+
+You can create [links like this](#) that have a subtle underline and transition to the accent color on hover.
+
+Text can be **bold** or *italic* as needed. Inline `code` has a subtle background and the accent color.
+
+## Tables
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| MDX | ✅ | Full support with frontmatter |
+| Syntax Highlighting | ✅ | Shiki via rehype-pretty-code |
+| Typography | ✅ | Custom scale with Geist fonts |
+| Animations | ✅ | Framer Motion for subtle effects |
+
+## What's Next
+
+This blog will feature:
+
+- **Deep dives** into software engineering topics
+- **Project showcases** demonstrating technical skills
+- **Personal insights** on technology and development
+- **Best practices** and lessons learned
+
+---
+
+Thank you for visiting. More posts coming soon!

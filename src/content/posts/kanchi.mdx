@@ -1,0 +1,214 @@
+---
+title: "To vibe or not to vibe"
+date: "2025-10-27"
+description: "I vibe-coded Kanchi, a Celery monitoring platform, to test where this approach shines and where it breaks. Here's what I learned about when to use vibe coding and when to avoid it."
+tags: ["vibe-coding", "agentic-coding", "celery", "monitoring"]
+---
+
+# Setting the scene
+
+The past year has been wild. Every week, a new <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>agentic coding</span> tool. Every few days, another frontier model. The tooling landscape went from copy-pasting [ChatGPT](https://chat.openai.com) responses to multi-layered autonomous coding agents in **twelve months**.
+
+But how do you *actually* use these tools effectively? I decided to find out by <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>vibe-coding</span> **Kanchi**, a monitoring platform for [Celery](https://docs.celeryq.dev/en/stable/), Python's distributed task queue. In this post, I'll share what I learned about when vibe coding is powerful and when it falls apart spectacularly.
+
+## What is vibe coding?
+
+If you've been following AI development, you know about <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>agentic coding</span>: LLMs equipped with tools to autonomously operate on codebases. A year ago, we copy-pasted code from [ChatGPT](https://chat.openai.com). Now, agents like [Claude Code](https://claude.ai/code) or [Cursor](https://cursor.com) can read, modify, and create files directly in your project.
+
+**<span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Vibe coding</span>** (coined by [Andrej Karpathy](https://twitter.com/karpathy)) is a specific approach: you write mostly plain English describing what you want, and let the agent handle implementation details. It's *declarative development*. You specify the **"what,"** not the **"how."** Instead of writing imperative instructions ("create a function that takes X, loops through Y, and returns Z"), you describe the outcome ("I need a function that filters active tasks by queue name").
+
+<Tweet id="1886192184808149383"/>
+
+In theory, this sounds *transformative*. In practice? Let's see.
+
+# Building Kanchi: A Celery monitoring platform
+
+## The problem: monitoring distributed task queues
+
+In Python, when you have long-running operations that would block your main application flow, you offload them to separate processes. A common way to do this is with [Celery](https://docs.celeryq.dev/en/stable/):a **distributed task queue** that handles everything from sending emails to processing images to generating reports.
+
+Here's a concrete example: when a user places an order, you need to generate an invoice PDF and email it to them. The order can complete *without* waiting for the email to send, but you still need to ensure *it eventually sends*. With [Celery](https://docs.celeryq.dev/en/stable/), this becomes a "task" that you dispatch to a task queue, where worker processes pick it up and execute it asynchronously.
+
+The architecture looks like this:
+- Your application dispatches tasks to a message broker (Redis or RabbitMQ)
+- Worker processes pull tasks from queues and execute them
+- Tasks can be routed to specific queues based on priority, type, or other criteria
+- Results get stored in a result backend
+
+But here's the challenge: once you dispatch a task, **how do you know what's happening to it?** Is it running? Did it fail? Did it get lost when a worker crashed? This is where <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>monitoring becomes critical</span>.
+
+## Why build something new?
+
+The most popular [Celery](https://docs.celeryq.dev/en/stable/) monitoring tool is [Flower](https://flower.readthedocs.io/en/latest/), and it's been the standard for years. It's robust, but I had specific requirements that weren't well-served:
+
+- **Manual task retry** - Re-execute failed tasks with the original arguments and routing
+- **Real-time task data** - Live updates as task states change
+- **Advanced search and filtering** - Query by queue, state, task name, time ranges
+- **<span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Orphan detection</span>** - Identify tasks that were dispatched but never completed
+- **Better UX** - A modern, responsive interface
+
+<span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Orphan detection</span> deserves special attention. **Orphans** are tasks that get "lost":they're dispatched but *never* reach a terminal state (SUCCESS, FAILURE, REVOKED). This happens due to:
+- Worker crashes (OOM kills, segfaults, forced shutdowns)
+- Network partitions between broker and workers
+- Broker failures that lose in-flight messages
+- Workers being scaled down while processing tasks
+
+**Orphans are dangerous because they fail silently.** A critical email never sends, a payment never processes, a report never generates:and you don't know until a user complains. Detecting them requires comparing task-sent events against terminal state events and identifying tasks that have been "in flight" longer than reasonable.
+
+## How it started
+
+I had a boilerplate project with a Vue.js frontend and Python backend already set up:basic project structure, type generation scripts, and an API client. Nothing fancy, just enough to hit the ground running.
+
+First, I needed a [Celery](https://docs.celeryq.dev/en/stable/) application to test against. I told [Claude Code](https://claude.ai/code): "Create a sample Celery application with various task types:short-running, long-running, tasks that fail randomly, tasks that succeed."
+
+In under **two minutes**, Claude generated a complete setup with a Redis broker, multiple task types with different characteristics, and proper [Celery](https://docs.celeryq.dev/en/stable/) configuration. I'm still using that test harness today, *almost unchanged*. This was <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>vibe coding at its best</span>: a well-defined problem with clear requirements, generating boilerplate code I could easily review.
+
+### When vibe coding turned toxic
+
+The first few features went smoothly. Real-time task updates, basic filtering, task details:all implemented quickly. But I wanted to focus on the frontend, so I let Claude handle the backend without much review. As long as it worked, I moved on.
+
+**This was my first major mistake.**
+
+When I implemented **manual task retry**, I hit a problem: no matter which queue a task was originally sent to, retrying it *always* sent it to the `default` queue. This broke task routing entirely. I asked Claude to investigate and fix it.
+
+That's when Claude started <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>hallucinating fixes</span>. It generated explanations about missing configuration, queue binding issues, and routing key problems:*none of which were correct*. It added **hundreds of lines** of defensive code: null checks, try-except blocks, fallback logic for edge cases that didn't exist. After several iterations, the codebase was a mess of speculative fixes addressing imaginary problems.
+
+Finally, I dug into the [Celery](https://docs.celeryq.dev/en/stable/) documentation myself. The issue was straightforward: **Celery's event system only includes the `routing_key` in the `task-sent` event**. Subsequent events (`task-started`, `task-succeeded`, `task-failed`) *don't* include routing information. When retrying a task, you must explicitly cache the `routing_key` from the task-sent event and reapply it during retry.
+
+Once I understood the event architecture, I told Claude *exactly* what to implement. Problem solved in **minutes**.
+
+**<span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>The lesson:</span>** Agents lack deep domain knowledge. When debugging distributed systems, they'll generate plausible-sounding explanations and defensive code rather than admitting "I don't understand Celery's event schema." You need to be in the driver's seat, capable of recognizing when the agent is hallucinating versus actually solving the problem.
+
+### Context window drift
+
+Another issue emerged with the frontend. I decided to use Tailwind CSS v4, which introduced **breaking changes** to the configuration system. In v3, you configure Tailwind with a `tailwind.config.ts` file. In v4, configuration moved to CSS-based setup with `@theme` directives.
+
+I forgot to explicitly mention this was a v4 project. Over multiple features and sessions, Claude started **mixing v3 and v4 patterns**. It generated both a `tailwind.config.ts` file (v3 approach) *and* CSS-based theme configuration (v4 approach). Two competing systems, overriding each other unpredictably.
+
+This is what I call **<span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>context drift</span>**:when an agent loses track of architectural decisions, especially across conversation boundaries. Each new session saw the mixed setup and assumed both approaches were intentional, compounding the problem with each feature added.
+
+### The "wow" moments
+
+<span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Vibe coding truly shined</span> when I was in control and had **clear requirements**. I knew *exactly* what I wanted, and even when I didn't specify implementation details, I could instantly recognize whether the output was correct.
+
+The best example: implementing the **Workflow Engine** for Kanchi. I used [OpenAI](https://openai.com/)'s Codex and spent five minutes brainstorming the requirements:what the feature should do *exactly* and what it *should not* do. Once we converged on a plan I accepted, Codex implemented it full-stack in **minutes**. The feature worked as expected with great UX.
+
+**The difference:** I had a clear mental model of the feature, could review the code intelligently, and maintained architectural control. The agent was a powerful tool for code generation, *not a replacement for engineering judgment*.
+
+# To vibe or not to vibe
+
+After building Kanchi and using <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>agentic coding</span> extensively over the past year, I've developed a framework for when <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>vibe coding</span> works and when it fails.
+
+## Where vibe coding shines
+
+**1. <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Code generation over code comprehension</span>**
+
+Agents excel at generating new code from scratch. Creating boilerplate, scaffolding new features, writing tests:these are well-defined tasks with clear patterns.
+
+Examples from Kanchi:
+- Generating the [Celery](https://docs.celeryq.dev/en/stable/) test harness with multiple task types
+- Creating API endpoints following established patterns
+- Scaffolding Vue components with TypeScript types (but often it started introducing new patterns as a by-product s.a. the Tailwind disaster described below)
+
+**2. Well-defined problem spaces**
+
+When requirements are **clear** and the problem domain is familiar, <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>vibe coding accelerates development dramatically</span>. You describe what you want, review the output, and move forward.
+
+Examples:
+- "Create a REST endpoint that returns filtered tasks by state and queue"
+- "Add a retry button that dispatches the task with original arguments"
+- "Implement real-time updates using WebSockets"
+
+**3. Stateless operations and refactoring**
+
+Agents handle refactoring well because the input/output behavior is defined. Extracting functions, reorganizing components, updating dependency patterns:these work reliably.
+
+Examples:
+- Refactoring Vue components to use composables
+- Extracting shared logic into utility functions
+
+**4. Clear acceptance criteria**
+
+When you can *immediately* verify correctness, agents work great. You know what "right" looks like, so you can quickly iterate.
+
+## Where vibe coding breaks down
+
+**1. <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Deep domain knowledge requirements</span>**
+
+Agents don't *truly* understand [Celery](https://docs.celeryq.dev/en/stable/)'s event architecture, distributed systems failure modes, or framework internals. They pattern-match from training data but **lack conceptual understanding**:it's your task to understand this and provide it to the agent!
+
+The queue routing bug is a perfect example: Claude couldn't reason about *why* `routing_key` isn't in all events. It couldn't derive the solution from first principles. It could only generate plausible-sounding code based on patterns.
+
+**This will be frustrating:**
+- Debugging distributed systems - without *closing the loop* (i.e. give it tools for cross service observability - e.g. logging)
+- Reasoning about race conditions et al.
+
+**2. <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Context drift across sessions</span>**
+
+Agents lose architectural context, especially across conversation boundaries. This leads to mixed patterns, duplicated functionality, and inconsistent approaches.
+
+The Tailwind v3/v4 mixing is textbook <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>context drift</span>. Future sessions didn't know about the v4 decision and assumed the mixed setup was intentional.
+
+**Mitigation strategies:**
+- Document architectural decisions - but often it's about reminding the agents
+- Explicitly state constraints in each session (this sometimes feels repetitive - hopefully this gets better in the future)
+- Review agent changes for consistency - before each commit
+
+**3. Exploratory programming and unclear requirements**
+
+When you don't know *exactly* what you want, <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>vibe coding becomes frustrating</span>. The agent needs direction, and if you can't provide it, you'll iterate endlessly on solutions that won't match your desires.
+
+**This manifests as:**
+- "Just try different approaches and see what feels right"
+- "Make it better"
+- "Fix the performance issue" (without profiling or understanding the bottleneck)
+
+**4. <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Code you can't review</span>**
+
+This is the **most dangerous failure mode**. If you don't understand what the agent wrote, you can't maintain it, debug it, or extend it. The codebase becomes a black box.
+
+**Warning signs:**
+- "I'm not sure what this code does, but it works"
+- Endless lines of defensive error handling
+- Mixed architectural patterns
+- Code that "just works" but you couldn't explain or review
+
+## My guidelines for vibe coding
+
+After this project, I've settled on these principles:
+
+**1. <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Don't use agents to avoid knowledge gaps:use them to fill gaps</span>**
+
+If you want to learn CSS, don't let an agent solve *every* styling problem. Try it yourself first. Use the agent to explain concepts, suggest approaches, or review your code:but **don't substitute learning with delegation**.
+
+<span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Vibe coding works best when you're competent in the domain</span> and using the agent to *accelerate*, not *replace*, your work.
+
+**2. <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Never write code you can't review</span>**
+
+This is **non-negotiable**. If you can't understand what the agent generated, *don't merge it*. You're accumulating technical debt you can't service.
+
+Agents will hallucinate, mix patterns, and generate code that "works" but is unmaintainable. Without review competence, your codebase degrades into spaghetti.
+
+**3. <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Maintain architectural control</span>**
+
+**You must be the architect.** The agent is a code generator, *not* a system designer. Define the architecture, establish patterns, and enforce consistency.
+
+When <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>context drift</span> happens (and it *will*), you need the knowledge to correct it.
+
+**4. <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Use for generation, not comprehension</span>**
+
+Agents are better at writing new code than understanding existing code. Use them for creating features, *not* debugging complex issues or understanding intricate systems.
+
+When debugging distributed systems, reading documentation yourself is often faster and more reliable than iterating with an agent.
+
+Precision in input yields quality in output. Use planning documents, use the agent to bounce ideas around.
+
+# Wrapping up
+
+<span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>Vibe coding is powerful but not magic.</span> It amplifies your capabilities when you're competent and maintaining control. It generates chaos when you're delegating understanding.
+
+The agents aren't sentient engineers:they're **sophisticated pattern matchers**. They excel at code generation, struggle with comprehension, and completely fail at deep reasoning about complex systems.
+
+**Use them as tools, not teammates.** Stay in the driver's seat. And *never*, **ever** merge code you don't understand.
+
+Kanchi shipped, works well, and taught me exactly where the line is between <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>productive acceleration</span> and <span style={{textDecoration: 'underline', textDecorationColor: 'oklch(0.75 0.18 170)'}}>dangerous abdication</span>. That's worth the time invested.
